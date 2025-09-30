@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # diskspace_guard.sh — auto-clean when disk space is low
-# Default thresholds (change via CLI flags below):
-THRESHOLD_GB="${THRESHOLD_GB:-60}"        # trigger if free < this many GB
-THRESHOLD_FREE_PCT="${THRESHOLD_FREE_PCT:-15}"  # or if free% < this
+
+set -euo pipefail
+
+# Default thresholds (change via CLI flags or your LaunchAgent):
+THRESHOLD_GB="${THRESHOLD_GB:-60}"               # trigger if free < this many GB
+THRESHOLD_FREE_PCT="${THRESHOLD_FREE_PCT:-15}"   # or if free% < this
 
 LOGFILE="${LOGFILE:-$HOME/Library/Logs/diskspace-guard.log}"
 CLEANMYMAC_APP="${CLEANMYMAC_APP:-CleanMyMac X}"  # change if localized name
@@ -29,33 +32,17 @@ done
 
 log() { printf "%s %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOGFILE"; }
 
-bytes_to_gb() {
-  # prints integer GB rounded down
-  awk -v b="$1" 'BEGIN { printf("%d", b/1024/1024/1024) }'
-}
+bytes_to_gb() { awk -v b="$1" 'BEGIN { printf("%d", b/1024/1024/1024) }'; }
 
-get_disk_stats() {
-  # POSIX-friendly df output for root filesystem
-  # Fields: Filesystem 1K-blocks Used Available Use% Mounted on
-  df -kP / | tail -1
-}
+get_disk_stats() { df -kP / | tail -1; }   # Filesystem 1K-blocks Used Available Use% Mounted on
 
-free_bytes() {
-  get_disk_stats | awk '{print $4*1024}'
-}
+free_bytes() { get_disk_stats | awk '{print $4*1024}'; }
 
-free_pct() {
-  # 100 - Use%
-  local usedpct
-  usedpct=$(get_disk_stats | awk '{print $5}' | tr -d '%')
-  echo $((100 - usedpct))
-}
+free_pct() { local usedpct; usedpct=$(get_disk_stats | awk '{print $5}' | tr -d '%'); echo $((100 - usedpct)); }
 
-human_free() {
-  # pretty print free (GB)
-  local fb; fb=$(free_bytes)
-  bytes_to_gb "$fb"
-}
+human_free() { local fb; fb=$(free_bytes); bytes_to_gb "$fb"; }
+
+mkdir -p "$(dirname "$LOGFILE")"
 
 before_free="$(free_bytes)"
 before_free_gb="$(human_free)"
@@ -78,7 +65,7 @@ log "ALERT: thresholds crossed — starting cleanup."
 if [[ "$RUN_EMPTY_TRASH" -eq 1 ]]; then
   if [[ -d "$HOME/.Trash" ]]; then
     TRASH_BEFORE=$(du -sk "$HOME/.Trash" 2>/dev/null | awk '{print $1}')
-    rm -rf "$HOME/.Trash/"* "$HOME/.Trash/".* 2>/dev/null
+    rm -rf "$HOME/.Trash/"* "$HOME/.Trash/".* 2>/dev/null || true
     TRASH_AFTER=$(du -sk "$HOME/.Trash" 2>/dev/null | awk '{print $1}')
     log "Trash emptied (was ${TRASH_BEFORE:-0}K, now ${TRASH_AFTER:-0}K)."
   else
@@ -86,12 +73,11 @@ if [[ "$RUN_EMPTY_TRASH" -eq 1 ]]; then
   fi
 fi
 
-# --- Step 2: Clear user caches (generally safe; apps may rebuild caches) ---
+# --- Step 2: Clear user caches (apps may rebuild) ---
 if [[ "$RUN_CLEAR_CACHES" -eq 1 ]]; then
   if [[ -d "$HOME/Library/Caches" ]]; then
     CACHES_BEFORE=$(du -sk "$HOME/Library/Caches" 2>/dev/null | awk '{print $1}')
-    # Delete only contents, keep the directory
-    find "$HOME/Library/Caches" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null
+    find "$HOME/Library/Caches" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
     CACHES_AFTER=$(du -sk "$HOME/Library/Caches" 2>/dev/null | awk '{print $1}')
     log "User caches cleared (was ${CACHES_BEFORE:-0}K, now ${CACHES_AFTER:-0}K)."
   else
@@ -103,7 +89,7 @@ fi
 if [[ "$RUN_PRUNE_XCODE" -eq 1 ]]; then
   if [[ -d "$HOME/Library/Developer/Xcode/DerivedData" ]]; then
     XCODE_BEFORE=$(du -sk "$HOME/Library/Developer/Xcode/DerivedData" 2>/dev/null | awk '{print $1}')
-    rm -rf "$HOME/Library/Developer/Xcode/DerivedData"/* 2>/dev/null
+    rm -rf "$HOME/Library/Developer/Xcode/DerivedData"/* 2>/dev/null || true
     XCODE_AFTER=$(du -sk "$HOME/Library/Developer/Xcode/DerivedData" 2>/dev/null | awk '{print $1}')
     log "Xcode DerivedData cleared (was ${XCODE_BEFORE:-0}K, now ${XCODE_AFTER:-0}K)."
   else
@@ -114,9 +100,8 @@ fi
 # --- Step 4: Thin Time Machine local snapshots (safe on laptops) ---
 if [[ "$RUN_TM_SNAPSHOT_THIN" -eq 1 ]]; then
   if command -v tmutil >/dev/null 2>&1; then
-    # Try targeted thin (~10GB) up to 4 passes; tmutil decides what to free
     log "Thinning Time Machine local snapshots (~10GB target, up to 4 passes)."
-    tmutil thinlocalsnapshots / 10000000000 4 2>&1 | tee -a "$LOGFILE"
+    tmutil thinlocalsnapshots / 10000000000 4 2>&1 | tee -a "$LOGFILE" || true
   else
     log "tmutil not available; skipping snapshot thinning."
   fi
@@ -125,11 +110,10 @@ fi
 # --- Step 5: Trigger CleanMyMac X Smart Cleanup (best-effort) ---
 if [[ "$RUN_CLEANMYMAC" -eq 1 ]]; then
   if osascript -e 'id of application "'"$CLEANMYMAC_APP"'"' >/dev/null 2>&1; then
-    # Try launching with args (if supported); otherwise just open the app.
     if open -a "$CLEANMYMAC_APP" --args --scan --clean >/dev/null 2>&1; then
       log "CleanMyMac X launched with --scan --clean (if supported)."
     else
-      open -a "$CLEANMYMAC_APP"
+      open -a "$CLEANMYMAC_APP" >/dev/null 2>&1 || true
       log "CleanMyMac X launched (no CLI flags supported on this build)."
     fi
   else
@@ -137,29 +121,28 @@ if [[ "$RUN_CLEANMYMAC" -eq 1 ]]; then
   fi
 fi
 
-# --- Step 6: Cloud eviction (File Provider clouds) ---
-# Evict the largest materialised files from iCloud/Dropbox/GDrive/OneDrive if still low
+# --- Report freed space so far ---
+sleep 5
+after_free="$(free_bytes)"
+after_free_gb="$(human_free)"
+delta_gb=$(( after_free_gb - before_free_gb ))
+log "Interim: Free before: ${before_free_gb}GB; after: ${after_free_gb}GB; delta: ${delta_gb}GB."
+
+# --- Step 6: File Provider cloud eviction if still low ---
 if [[ "$after_free_gb" -lt "$THRESHOLD_GB" ]]; then
-  if command -v "$HOME/bin/cloudspace_evict.sh" >/dev/null 2>&1; then
-    log "Space still low; attempting File Provider eviction of large files."
-    "$HOME/bin/cloudspace_evict.sh" --apply | tee -a "$LOGFILE"
+  if [[ -x "$HOME/bin/cloudspace_evict.sh" ]]; then
+    log "Space still low; attempting File Provider eviction (largest files)."
+    "$HOME/bin/cloudspace_evict.sh" --apply | tee -a "$LOGFILE" || true
     sleep 5
-    # Recalculate after eviction
     after_free="$(free_bytes)"
     after_free_gb="$(human_free)"
     delta_gb=$(( after_free_gb - before_free_gb ))
   else
-    log "cloudspace_evict.sh not found; skipping eviction."
+    log "cloudspace_evict.sh not found or not executable; skipping eviction."
   fi
 fi
 
-# --- Report freed space ---
-sleep 5  # give the system a moment to reclaim space
-after_free="$(free_bytes)"
-after_free_gb="$(human_free)"
-delta_gb=$(( after_free_gb - before_free_gb ))
 log "Cleanup finished. Free before: ${before_free_gb}GB; after: ${after_free_gb}GB; delta: ${delta_gb}GB."
-
-# Optional: macOS notification
-osascript -e 'display notification "Freed ~'"$delta_gb"' GB. Free space: '"$after_free_gb"' GB" with title "Diskspace Guard"'
+osascript -e 'display notification "Freed ~'"$delta_gb"' GB. Free space: '"$after_free_gb"' GB" with title "Diskspace Guard"' || true
 exit 0
+
