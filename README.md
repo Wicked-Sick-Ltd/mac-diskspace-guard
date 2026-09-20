@@ -103,3 +103,15 @@ If you saved the script somewhere else, update the `ProgramArguments` path accor
 
 MIT — use, modify, and share freely.
 Contributions welcome! 🎉
+
+<!-- repository-guidance:begin -->
+## Contributing and agent guidance
+
+- [Contributor guide](CONTRIBUTING.md): development workflow and validation.
+- [Agent instructions](AGENTS.md): shared guidance for Codex and other coding agents.
+- [Security policy](SECURITY.md): private vulnerability reporting.
+
+## Repository license
+
+MIT licensed; see [LICENCE](LICENCE). Preserve third-party notices.
+<!-- repository-guidance:end -->
