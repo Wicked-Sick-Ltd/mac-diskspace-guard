@@ -45,8 +45,11 @@ for pat in "${SKIP_PATTERNS[@]}"; do
   skip_expr+=(-not -path "$HOME$pat")
 done
 
-# Gather candidates
-mapfile -d '' CANDIDATES < <(
+# Gather candidates (Bash 3.2-compatible null-delimited read)
+CANDIDATES=()
+while IFS= read -r -d '' entry; do
+  CANDIDATES+=("$entry")
+done < <(
   for root in "${SCAN_DIRS[@]}"; do
     [[ -d "$root" ]] || continue
     find "$root" -xdev -type f "${skip_expr[@]}" -size +"$((MIN_SIZE_BYTES / 1024))"k -print0 2> /dev/null
@@ -75,8 +78,11 @@ while [[ $i -lt ${#CANDIDATES[@]} ]]; do
   i=$((i + 1))
 done
 
-# Sort by size desc and take top N
-mapfile -t TOP < <(sort -nr "$TMPLIST" | head -n "$MAX_EVICT")
+# Sort by size desc and take top N (Bash 3.2-compatible line read)
+TOP=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && TOP+=("$line")
+done < <(sort -nr "$TMPLIST" | head -n "$MAX_EVICT")
 
 TOTAL=0
 COUNT=0

@@ -41,7 +41,7 @@ Or manually:
 mkdir -p ~/bin ~/Library/LaunchAgents ~/Library/Logs
 cp diskspace_guard.sh ~/bin/
 chmod +x ~/bin/diskspace_guard.sh
-cp com.craig.diskspace-guard.plist ~/Library/LaunchAgents/
+sed "s|\$${HOME}|$HOME|g" com.craig.diskspace-guard.plist > ~/Library/LaunchAgents/com.craig.diskspace-guard.plist
 
 # load / reload
 launchctl unload ~/Library/LaunchAgents/com.craig.diskspace-guard.plist 2>/dev/null || true

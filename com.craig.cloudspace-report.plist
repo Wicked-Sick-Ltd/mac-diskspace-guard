@@ -18,11 +18,11 @@
   <key>StartInterval</key>
   <integer>3600</integer>
 
-  <!-- Log files -->
+  <!-- Log files (script writes stdout via tee; launchd captures stderr) -->
   <key>StandardOutPath</key>
-  <string>${HOME}/Library/Logs/cloudspace-report.log</string>
+  <string>/dev/null</string>
   <key>StandardErrorPath</key>
-  <string>${HOME}/Library/Logs/cloudspace-report.log</string>
+  <string>${HOME}/Library/Logs/cloudspace-report.err.log</string>
 
   <!-- Environment PATH -->
   <key>EnvironmentVariables</key>
