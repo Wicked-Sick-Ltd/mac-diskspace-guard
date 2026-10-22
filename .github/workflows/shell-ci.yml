@@ -14,7 +14,6 @@ jobs:
           brew update
           brew install shellcheck shfmt
       - name: shellcheck
-        run: shellcheck -x diskspace_guard.sh cloudspace_*.sh || true
+        run: shellcheck -x diskspace_guard.sh cloudspace_*.sh
       - name: shfmt diff
         run: shfmt -d -i 2 -ci -sr -bn .
-
