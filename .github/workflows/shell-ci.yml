@@ -1,0 +1,19 @@
+name: Shell CI
+on:
+  push:
+    branches: [ main, feature/**, fix/** ]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          brew update
+          brew install shellcheck shfmt
+      - name: shellcheck
+        run: shellcheck -x diskspace_guard.sh cloudspace_*.sh
+      - name: shfmt diff
+        run: shfmt -d -i 2 -ci -sr -bn .

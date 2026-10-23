@@ -1,73 +1,59 @@
 # mac-diskspace-guard
 
-> 🖥️ macOS LaunchAgent + script to keep an eye on free disk space and trigger cleanup before things grind to a halt.  
-> No `sudo` required — everything runs as your user.
+Early warning + auto-cleanup for macOS so you **don’t** hit zero free disk space.
+
+- Warn with iStat Menus (recommended) or just use this agent’s thresholds
+- Auto-tidy **Trash, caches, Xcode DerivedData**
+- Thin **Time Machine local snapshots**
+- Optionally trigger **CleanMyMac X** Smart Cleanup
+- (When still tight) **Evict** largest *materialized* cloud files (iCloud, Dropbox, Google Drive, OneDrive) via `fileproviderctl`
+- Optional hourly **cloud footprint report** (iCloud/Dropbox/GDrive/OneDrive + `/Volumes` mounts like Mountain Duck)
 
 ---
 
-## ✨ Features
-- 🚨 Warns when free disk space drops below a threshold (GB or %).  
-- 🗑️ Optionally runs cleanup steps (Time Machine thinning, CleanMyMac X, etc.).  
-- 🔔 macOS notifications + log file at `~/Library/Logs/diskspace-guard.log`.  
-- ⚙️ Configurable via environment variables and LaunchAgent arguments.  
+## Quick Start
+
+**Requirements**
+- macOS 12+ (for `fileproviderctl`-based eviction)
+- Optional: iStat Menus for nice UI alerts
+- Optional: CleanMyMac X (the guard will try to run Smart Cleanup)
+
+**Permissions**
+- No `sudo` required. The scripts run as your user.
+- First run from Terminal may prompt access; granting Terminal **Full Disk Access** helps on some setups.
+
+**Apple Silicon**
+- Homebrew is usually `/opt/homebrew`. The LaunchAgent sets PATH accordingly.
 
 ---
 
-## 📜 Script: `diskspace-guard.sh`
-Save this file to:  
+## Install
+
 ```bash
-~/bin/diskspace_guard.sh
-````
-
-*(or another path you prefer; just keep it consistent with the plist)*
-
----
-
-## ⚙️ LaunchAgent: `com.craig.diskspace-guard.plist`
-
-Save this file to:
-
-```bash
-~/Library/LaunchAgents/com.craig.diskspace-guard.plist
+make install
+# Optional: install cloud eviction & hourly cloud footprint report
+make install-cloud
 ```
 
-If you saved the script somewhere else, update the `ProgramArguments` path accordingly.
+Or manually:
+
+```bash
+mkdir -p ~/bin ~/Library/LaunchAgents ~/Library/Logs
+cp diskspace_guard.sh ~/bin/
+chmod +x ~/bin/diskspace_guard.sh
+sed "s|\${HOME}|$HOME|g" com.craig.diskspace-guard.plist > ~/Library/LaunchAgents/com.craig.diskspace-guard.plist
+
+# load / reload
+launchctl unload ~/Library/LaunchAgents/com.craig.diskspace-guard.plist 2>/dev/null || true
+launchctl load  ~/Library/LaunchAgents/com.craig.diskspace-guard.plist
+
+# (optional) force a test run
+bash -lc '~/bin/diskspace_guard.sh --threshold-gb 9999 --percent-free 101'
+```
 
 ---
 
-## 🚀 Install & Load
-
-1. **Put the files in place**
-
-   ```bash
-   mkdir -p ~/Library/LaunchAgents
-   # Save the plist to ~/Library/LaunchAgents
-   # Save the script to ~/bin
-   ```
-
-2. **Load the agent**
-
-   ```bash
-   launchctl unload ~/Library/LaunchAgents/com.craig.diskspace-guard.plist 2>/dev/null || true
-   launchctl load ~/Library/LaunchAgents/com.craig.diskspace-guard.plist
-   ```
-
-3. **(Optional) Kick it right now for a test**
-
-   ```bash
-   bash -lc '~/bin/diskspace_guard.sh --threshold-gb 9999 --percent-free 101'
-   ```
-
-   You should see:
-
-   * a macOS notification, and
-   * a log entry in `~/Library/Logs/diskspace-guard.log`.
-
-   Afterwards, revert your thresholds in the plist (or wait for the next scheduled run).
-
----
-
-## 🔧 Configuration & Tuning
+## Configuration & Tuning
 
 * **Change thresholds**
   Edit the plist line with `--threshold-gb` and/or `--percent-free`, then reload:
@@ -98,11 +84,6 @@ If you saved the script somewhere else, update the `ProgramArguments` path accor
   *(Optional: swap this to an AppleScript that tells CleanMyMac X to run Smart Scan directly.)*
 
 ---
-
-## 📄 License
-
-MIT — use, modify, and share freely.
-Contributions welcome! 🎉
 
 <!-- repository-guidance:begin -->
 ## Contributing and agent guidance

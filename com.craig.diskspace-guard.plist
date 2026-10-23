@@ -18,11 +18,11 @@
   <key>StartInterval</key>
   <integer>900</integer>
 
-  <!-- Log files -->
+  <!-- Log files (script writes stdout via tee; launchd captures stderr) -->
   <key>StandardOutPath</key>
-  <string>${HOME}/Library/Logs/diskspace-guard.log</string>
+  <string>/dev/null</string>
   <key>StandardErrorPath</key>
-  <string>${HOME}/Library/Logs/diskspace-guard.log</string>
+  <string>${HOME}/Library/Logs/diskspace-guard.err.log</string>
 
   <!-- Environment PATH so tmutil/open/osascript resolve -->
   <key>EnvironmentVariables</key>
