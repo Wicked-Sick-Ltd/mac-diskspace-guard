@@ -72,6 +72,10 @@ EOF
   }
 
   local case_failed=0 w
+  if [[ -e "$root/PWNED" ]]; then
+    echo "FAIL [$name]: folder name text was executed as a command"
+    case_failed=1
+  fi
   while IFS= read -r -d '' w; do
     case "$w" in
       "$cloud"/*) ;;
@@ -107,6 +111,10 @@ run_case "google drive folder with space" "Users/craig" "GoogleDrive-me@example.
 run_case "home folder with space" "Users/Ann Smith" "OneDrive-Acme"
 run_case "glob characters in folder name" "Users/craig" "OneDrive-Acme * ????????????"
 run_case "newline in folder name" "Users/craig" $'OneDrive-Acme\nSystem'
+# du prints the second line of the name on its own; it must never reach $(( )).
+# shellcheck disable=SC2016
+run_case "arithmetic expansion in folder name" "Users/craig" \
+  $'OneDrive-Acme\n+PATH[$(touch${IFS}PWNED)]' $'GoogleDrive-me\n+PATH[$(touch${IFS}PWNED)]'
 
 if [[ "$failures" -ne 0 ]]; then
   echo "$failures case(s) failed"
