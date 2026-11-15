@@ -74,7 +74,8 @@ while [[ $i -lt ${#CANDIDATES[@]} ]]; do
   else
     sz=$(stat -c '%s' "$f")
   fi
-  printf "%s\t%s\n" "$sz" "$f" >> "$TMPLIST"
+  # Store the index, not the path: file names may contain tabs or newlines.
+  printf "%s\t%s\n" "$sz" "$i" >> "$TMPLIST"
   i=$((i + 1))
 done
 
@@ -88,7 +89,7 @@ TOTAL=0
 COUNT=0
 for line in "${TOP[@]}"; do
   sz="${line%%	*}"
-  f="${line#*	}"
+  f="${CANDIDATES[${line#*	}]}"
 
   # Heuristic: only attempt to evict if file seems materialized (has data fork)
   # If it's already online-only, evict will just be a no-op.
