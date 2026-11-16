@@ -24,7 +24,14 @@ if [[ "${1:-}" == "--apply" ]]; then
   APPLY=1
 fi
 
-log() { printf "%s %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOGFILE"; }
+# Logging is best-effort: LOGFILE and stdout usually sit on the volume this
+# script is trying to free, so a failed write must never stop eviction.
+log() {
+  local line
+  line="$(date '+%Y-%m-%d %H:%M:%S') $*"
+  printf "%s\n" "$line" || true
+  printf "%s\n" "$line" 2> /dev/null >> "$LOGFILE" || true
+}
 
 require() {
   command -v "$1" > /dev/null 2>&1 || {
@@ -61,34 +68,41 @@ if [[ ${#CANDIDATES[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Compute sizes and sort desc
-TMPLIST="$(mktemp)"
-trap 'rm -f "$TMPLIST"' EXIT
-
-i=0
-while [[ $i -lt ${#CANDIDATES[@]} ]]; do
-  f="${CANDIDATES[$i]}"
+# Keep the largest MAX_EVICT candidates, sorted by size desc, in memory.
+# No temp files: the volume may have no free blocks left.
+TOP_SIZES=()
+TOP_FILES=()
+for f in "${CANDIDATES[@]}"; do
   # size in bytes (GNU/BSD stat compatibility)
   if stat -f '%z' "$f" > /dev/null 2>&1; then
-    sz=$(stat -f '%z' "$f")
+    sz=$(stat -f '%z' "$f" 2> /dev/null) || continue
   else
-    sz=$(stat -c '%s' "$f")
+    sz=$(stat -c '%s' "$f" 2> /dev/null) || continue
   fi
-  printf "%s\t%s\n" "$sz" "$f" >> "$TMPLIST"
-  i=$((i + 1))
+  n=${#TOP_SIZES[@]}
+  if [[ $n -ge $MAX_EVICT && $sz -le ${TOP_SIZES[$((n - 1))]} ]]; then
+    continue
+  fi
+  j=$n
+  while [[ $j -gt 0 && ${TOP_SIZES[$((j - 1))]} -lt $sz ]]; do
+    TOP_SIZES[j]=${TOP_SIZES[$((j - 1))]}
+    TOP_FILES[j]=${TOP_FILES[$((j - 1))]}
+    j=$((j - 1))
+  done
+  TOP_SIZES[j]=$sz
+  TOP_FILES[j]=$f
+  if [[ ${#TOP_SIZES[@]} -gt $MAX_EVICT ]]; then
+    unset "TOP_SIZES[$MAX_EVICT]" "TOP_FILES[$MAX_EVICT]"
+  fi
 done
-
-# Sort by size desc and take top N (Bash 3.2-compatible line read)
-TOP=()
-while IFS= read -r line; do
-  [[ -n "$line" ]] && TOP+=("$line")
-done < <(sort -nr "$TMPLIST" | head -n "$MAX_EVICT")
 
 TOTAL=0
 COUNT=0
-for line in "${TOP[@]}"; do
-  sz="${line%%	*}"
-  f="${line#*	}"
+i=0
+while [[ $i -lt ${#TOP_SIZES[@]} ]]; do
+  sz="${TOP_SIZES[$i]}"
+  f="${TOP_FILES[$i]}"
+  i=$((i + 1))
 
   # Heuristic: only attempt to evict if file seems materialized (has data fork)
   # If it's already online-only, evict will just be a no-op.
