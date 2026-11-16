@@ -21,8 +21,8 @@ report_dir() {
   if [[ -d "$path" ]]; then
     # On-disk footprint (materialized bytes). Fast estimate: du -sk
     local kb items
-    kb=$(du -sk "$path" 2> /dev/null | awk '{print $1}')
-    items=$(find "$path" -xdev -type f -print 2> /dev/null | wc -l | tr -d ' ')
+    kb=$(du -sk "$path" 2> /dev/null | awk '{print $1}' || true)
+    items=$(find "$path" -xdev -type f -print 2> /dev/null | wc -l | tr -d ' ' || true)
     local gb=$((kb / 1024 / 1024))
     printf "%s,%s,%s,%s\n" "$name" "$path" "$gb" "$items" | tee -a "$LOGFILE"
   fi
@@ -39,9 +39,9 @@ if [[ -d "$CLOUDSTORAGE" ]]; then
     [[ "$d" == "$DROPBOX_GUESS" ]] && continue
     [[ "$d" == "$ICLOUD" ]] && continue
     printf "FileProvider,%s," "$d" | tee -a "$LOGFILE" > /dev/null
-    kb=$(du -sk "$d" 2> /dev/null | awk '{print $1}')
+    kb=$(du -sk "$d" 2> /dev/null | awk '{print $1}' || true)
     gb=$((kb / 1024 / 1024))
-    items=$(find "$d" -xdev -type f -print 2> /dev/null | wc -l | tr -d ' ')
+    items=$(find "$d" -xdev -type f -print 2> /dev/null | wc -l | tr -d ' ' || true)
     printf "%s,%s\n" "$gb" "$items" | tee -a "$LOGFILE"
   done < <(find "$CLOUDSTORAGE" -mindepth 1 -maxdepth 1 -type d -print0 2> /dev/null)
 fi
