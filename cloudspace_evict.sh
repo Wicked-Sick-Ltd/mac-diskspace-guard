@@ -61,20 +61,27 @@ if [[ ${#CANDIDATES[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# Pick the stat flavour once: Apple stat rejects -c, GNU stat has no -f '%z'.
+if stat -c '%s' / > /dev/null 2>&1; then
+  STAT_SIZE=(stat -c '%s')
+else
+  STAT_SIZE=(stat -f '%z')
+fi
+
 # Compute sizes and sort desc
 TMPLIST="$(mktemp)"
 trap 'rm -f "$TMPLIST"' EXIT
 
+# Lines are "<size>\t<index into CANDIDATES>" so paths are never re-parsed.
 i=0
 while [[ $i -lt ${#CANDIDATES[@]} ]]; do
   f="${CANDIDATES[$i]}"
-  # size in bytes (GNU/BSD stat compatibility)
-  if stat -f '%z' "$f" > /dev/null 2>&1; then
-    sz=$(stat -f '%z' "$f")
+  # Synced files can vanish or error between find and stat; skip, don't abort.
+  if sz=$("${STAT_SIZE[@]}" "$f" 2> /dev/null) && [[ "$sz" =~ ^(0|[1-9][0-9]*)$ ]]; then
+    printf "%s\t%s\n" "$sz" "$i" >> "$TMPLIST"
   else
-    sz=$(stat -c '%s' "$f")
+    log "Skipping (stat failed): $f"
   fi
-  printf "%s\t%s\n" "$sz" "$f" >> "$TMPLIST"
   i=$((i + 1))
 done
 
@@ -86,9 +93,9 @@ done < <(sort -nr "$TMPLIST" | head -n "$MAX_EVICT")
 
 TOTAL=0
 COUNT=0
-for line in "${TOP[@]}"; do
+for line in ${TOP[@]+"${TOP[@]}"}; do
   sz="${line%%	*}"
-  f="${line#*	}"
+  f="${CANDIDATES[${line#*	}]}"
 
   # Heuristic: only attempt to evict if file seems materialized (has data fork)
   # If it's already online-only, evict will just be a no-op.
