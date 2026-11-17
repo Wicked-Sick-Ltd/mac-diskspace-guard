@@ -53,6 +53,26 @@ bash -lc '~/bin/diskspace_guard.sh --threshold-gb 9999 --percent-free 101'
 
 ---
 
+## Cloud agent environment
+
+Cursor Cloud Agent VMs are Linux. They can edit this repo and run lint and syntax checks. They cannot load LaunchAgents.
+
+`.cursor/install.sh` (run from `.cursor/environment.json`) installs `shellcheck`, `shfmt`, `bats`, and `plistutil`. It does not copy scripts into `~/bin` or `~/Library/LaunchAgents`.
+
+`make install`, `make install-cloud`, and `make uninstall` call `launchctl` and write under the home directory. Those targets are macOS-only and cannot run on the Linux VM. Do not execute `diskspace_guard.sh`, `cloudspace_evict.sh`, or `cloudspace_report.sh` on the VM either: they can delete Trash, caches, Xcode DerivedData, Time Machine local snapshots, or evict cloud files.
+
+Safe checks on Linux:
+
+```bash
+bash -n diskspace_guard.sh cloudspace_evict.sh cloudspace_report.sh
+shellcheck -x diskspace_guard.sh cloudspace_*.sh
+shfmt -d -i 2 -ci -sr -bn .
+```
+
+There is no bats suite yet. No secret environment variables are required.
+
+---
+
 ## Configuration & Tuning
 
 * **Change thresholds**

@@ -12,6 +12,12 @@ Run commands from the repository root unless the component documentation says ot
 
 - `bash -n cloudspace_evict.sh` — check shell syntax without running operational actions.
 
+## Cloud agent environment
+
+Cloud Agent VMs are Linux. `.cursor/install.sh` installs `shellcheck`, `shfmt`, `bats`, and `plistutil` for editing, linting, and syntax checks.
+
+`make install`, `make install-cloud`, and `make uninstall` call `launchctl` and write into `~/bin` and `~/Library/LaunchAgents`. Those steps are macOS-only and cannot run on the Linux VM. Do not execute `diskspace_guard.sh`, `cloudspace_evict.sh`, or `cloudspace_report.sh` there: they can delete files or evict cloud data. Use `bash -n`, `shellcheck -x`, and `shfmt -d -i 2 -ci -sr -bn .` only. No secret environment variables are required.
+
 ## Coding and Testing
 
 Match the indentation and naming of neighboring files; avoid unrelated reformatting. Use the checks documented in the README and component directories; do not claim an automated suite exists without verifying it. Keep changes focused and follow existing test filenames. Add regression coverage for behavior changes, using isolated fixtures instead of live customer data. For documentation-only edits, verify commands, local links, and `git diff --check`.
