@@ -4,6 +4,9 @@ on:
     branches: [ main, feature/**, fix/** ]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: macos-15
