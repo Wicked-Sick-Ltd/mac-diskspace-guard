@@ -76,8 +76,8 @@ if mount | grep -qi "mountainduck"; then
 fi
 
 while IFS= read -r -d '' vol; do
-  # Try df on the mount
-  vol_line=$(df -H "$vol" 2> /dev/null | awk 'NR==2{printf "  %s — Used:%s Free:%s Use%%:%s\n",$6,$3,$4,$5}')
+  # A stale or disconnected mount makes df fail. That must not abort the report.
+  vol_line=$(df -H "$vol" 2> /dev/null | awk 'NR==2{printf "  %s — Used:%s Free:%s Use%%:%s\n",$6,$3,$4,$5}') || true
   if [[ -n "$vol_line" ]]; then
     emit "$vol_line"
   fi
