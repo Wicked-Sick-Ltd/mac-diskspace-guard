@@ -31,7 +31,9 @@ names=(
   $'other\n12345\tplain.bin'
 )
 for n in "${names[@]}"; do
-  truncate -s 210M "$cloud/$n"
+  # 210 MiB, above the 200 MiB eviction threshold. dd is on macOS and Linux;
+  # truncate is not part of stock macOS.
+  dd if=/dev/zero of="$cloud/$n" bs=1 count=0 seek=220200960 2> /dev/null
 done
 
 failures=0
