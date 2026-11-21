@@ -64,7 +64,9 @@ Cursor Cloud Agent VMs are Linux. They can edit this repo and run lint and synta
 Safe checks on Linux:
 
 ```bash
-bash -n diskspace_guard.sh cloudspace_evict.sh cloudspace_report.sh
+for f in diskspace_guard.sh cloudspace_evict.sh cloudspace_report.sh; do
+  bash -n "$f"
+done
 shellcheck -x diskspace_guard.sh cloudspace_*.sh
 shfmt -d -i 2 -ci -sr -bn .
 ```
