@@ -74,7 +74,7 @@ human_free() {
   bytes_to_gb "$fb"
 }
 
-mkdir -p "$(dirname "$LOGFILE")"
+mkdir -p "$(dirname "$LOGFILE")" 2> /dev/null || true
 
 before_free_gb="$(human_free)"
 before_pct="$(free_pct)"
