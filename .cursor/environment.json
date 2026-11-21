@@ -1,0 +1,4 @@
+{
+  "name": "mac-diskspace-guard",
+  "install": "bash .cursor/install.sh"
+}
